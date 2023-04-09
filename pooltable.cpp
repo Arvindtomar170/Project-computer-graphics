@@ -24,6 +24,15 @@ typedef struct {
 
 }Block;
 
+
+//for stick 
+// Center point of rotation
+int lastX, lastY;
+float rotationX = 0.0f;
+float rotationY = 0.0f;
+
+
+
 void init();
 void cube();
 void StopBalls();
@@ -33,6 +42,12 @@ void init_blocks();
 void draw_Hole(Hole hole);
 void draw_block(Block block);
 void color_ball(float red, float green, float blue);
+void display();
+
+// for stick 
+void Stick();
+void StickMouse(int button, int state, int x, int y) ;
+void StickMotion(int x, int y);
 
 
 int rot = 0, rot2 = 0, rot3 = 0, flag = 0, CanSpeed = 1, IsSpeeding = 0, flag4, IsAnimatingTable = 0, arrlenght = 9; // rotations for different in game camera movements
@@ -41,6 +56,7 @@ int selected_Ball, old_Ball; // old ball to get colour when switching ball contr
 char s[10], str[100], *str2; // to print different characters on the screen using sprintf()
 float aC, xC, zC, dis; // the C variables for circular calculations, dis = distance between the ball and the hole
 float velocity = 15, speed = 0.005, defSpeed, rot_temp = 0; // variables for physics when a ball has collided with another ball starts a timer for speeding
+
 int fRight[9] = { 0 }, fLeft[9] = { 0 }, fDown[9] = { 0 }, fUp[9] = { 0 }; // The flags that for each ball, initialize with 0 and 1 when the specific side has entered collision
 clock_t starttime = clock(); // use the clock for game time ( 60 seconds)
 clock_t endtime; // end time for the clock
@@ -57,9 +73,10 @@ void reset()  // reset all values when starting new game
 	reflex = 0;
 	start = 1; velocity = 15; speed = 0.005; rot_temp = 0;
 }
+
 void up()   // When new game starts the table going up
 {
-	rot_temp += 0.03;
+	rot_temp += 0.5;
 
 	if (rot_temp >= 1.0)
 	{
@@ -73,6 +90,7 @@ void up()   // When new game starts the table going up
 		starttime = clock();
 	}
 }
+
 void print_score()  /// and timer
 {
 	sprintf(str, "Score : %d", score);
@@ -150,6 +168,7 @@ int checkCollisionVertical(Ball a)
 		}
 	return 0;
 }
+
 // I is the controlled ball and J is the other balls, 0.6 = radius
 // checks for collision and move the balls accordingly
 int move_x(int i)
@@ -167,6 +186,7 @@ int move_x(int i)
 	}
 	return -1;
 }
+
 void StopBalls()   // Stop's balls moving
 {
 	balls[selected_Ball].status = 1;
@@ -182,6 +202,7 @@ void StopBalls()   // Stop's balls moving
 		fUp[i] = 0;
 	}
 }
+
 void checkgame()  /// To Check if All the Ball's are inserted to the holes (End Game) 
 {
 	for (int i = 1; i < 9 && balls[i].onTable == 1; i++)
@@ -196,6 +217,7 @@ void checkgame()  /// To Check if All the Ball's are inserted to the holes (End 
 		reset();
 	}
 }
+
 // The arrow keys
 void SpecialInput(int key, int x, int y)
 {
@@ -216,6 +238,7 @@ void SpecialInput(int key, int x, int y)
 		fDown[selected_Ball] = 1;
 	}
 }
+
 void keyboard(unsigned char key, int x, int y)
 {
 	if (key == 27) exit(1);
@@ -290,7 +313,7 @@ void keyboard(unsigned char key, int x, int y)
 					flag4 = 1;
 			}
 			if (flag4 == 0)
-				speed = speed + 1;
+				speed = speed + 0.1;
 		}
 	} ///
 	if (key == '-') // slow ball speed 
@@ -308,6 +331,7 @@ void keyboard(unsigned char key, int x, int y)
 	} ///
 	glutPostRedisplay();
 }
+
 void draw()
 {
 	glClear(GL_COLOR_BUFFER_BIT |
@@ -412,7 +436,11 @@ void draw()
 		// 	glEnd();
 		// }
 
+
+		// drawStick 
+		Stick();
 		//Blocks
+
 		for (int i = 0; i < 8; i++) {
 			glTranslatef(blocks[i].x, 0, blocks[i].z);
 			draw_block(blocks[i]);
@@ -441,6 +469,7 @@ void draw()
 	glutSwapBuffers(); // display the output
 
 }
+
 void Checkflag(int i)  // to check if a ball hit a hole
 {
 	if (balls[i].onTable == 0) {   // to check if the ball still in the game
@@ -467,6 +496,7 @@ void Checkflag(int i)  // to check if a ball hit a hole
 		}
 	}
 }
+
 // here we check collision, which side of the collision is occurring
 // the flags for the sides (fLeft, fRight, fDown, fUp) that each ball has
 // we can set a reflex and move the ball accordingly
@@ -478,6 +508,7 @@ void Idle()
 		isVColliding = checkCollisionVertical(balls[i]); // check ball collided with block vertically 
 		isHColliding = checkCollisionHorizontal(balls[i]); // check ball collided with block horizontally
 		Checkflag(i);   // check if the ball hit a hole
+		
 		if (balls[i].onTable == 0) {            /// check of the ball still in the table
 			if (fRight[i])             // each ball have her own right flags
 			{
@@ -591,15 +622,16 @@ void Idle()
 				}
 			}		
 		}
+		
 		// keep the balls on the table
-		if (balls[i].onTable == 2)
-		{
+		// if (balls[i].onTable == 2)
+		// {
 
-			balls[i].y = balls[i].y - 0.002;
+		// 	balls[i].y = balls[i].y - 0.002;
 
-			if (balls[i].y <-7.7)
-				balls[i].onTable = 1;
-		}
+		// 	if (balls[i].y <-7.7)
+		// 		balls[i].onTable = 1;
+		// }
 	}
 
 	if (reflex) {            //  if a ball hit another ball reflex=1 starts to speed then stop after some time (15 frame)
@@ -628,6 +660,7 @@ void Idle()
 	}
 	draw();
 }
+
 int main(int argc, char *argv[])
 {
 	glutInit(&argc, argv);
@@ -635,16 +668,23 @@ int main(int argc, char *argv[])
 	glutInitWindowSize(1000, 1000); // 500 x 500 pixels
 	glutCreateWindow("3D");
 	init();
+	
+	
 	glutDisplayFunc(draw); // Set the display function
 	glutKeyboardFunc(keyboard); // Set the keyboard function
 	glutSpecialFunc(SpecialInput); //special keyboard keys
+
+    glutMouseFunc(StickMouse);
+    glutMotionFunc(StickMotion);
+
 	init_ball(); // draw the balls
-	init_holes(); // draw holes
+	init_holes(); // draw hole
 	init_blocks(); // draw inside and outside walls
 	glutIdleFunc(Idle);
 	glutMainLoop(); // Start the main event loop
 
 }
+
 // Set OpenGL parameters
 void init()
 {
@@ -672,6 +712,7 @@ void init()
 	glEnable(GL_COLOR_MATERIAL);
 	glEnable(GL_DEPTH_TEST);
 }
+
 // used to draw the table legs
 // TODO: switch to blocks
 void cube()
@@ -751,6 +792,7 @@ void draw_block(Block block)
 
 	glEnd();
 }
+
 // position the 4 surrounding walls and the 4 inside cubes 
 //TODO: set the variables width and height and replace the numbers
 void init_blocks() 
@@ -779,16 +821,18 @@ void init_ball()
 	balls[7] = {-6.0f, 0.0f, 8.0f, 0.3f, 0.1f, 0.6f, 0,0};
 	balls[8] = {6.0f, 0.0f, 3.0f, 0.8f, 0.6f, 0.2f, 0,0};
 }
+
 void init_holes() {
-	holes[0] = { 1.0f, 0.0f, 0.0f, -7.5f, 0.1f, 10.5f, -10 };	//  top right 
-	holes[1] = { 0.0f, 0.0f, 0.0f, 7.5f, 0.1f, 10.5f, 15 };		// 	bottom right
+	holes[0] = { 0.0f, 0.0f, 0.0f, -7.5f, 0.1f, 10.5f, 1};	//  top right 
+	holes[1] = { 0.0f, 0.0f, 0.0f, 7.5f, 0.1f,  10.5f, 1};		// 	bottom right
 
-	holes[2] = { 1.0f, 0.0f, 0.0f, -8.0f, 0.1f, 0.0f, -10 };	//  top  center
-	holes[3] = { 0.0f, 0.0f, 0.0f, 8.0f, 0.1f, 0.0f, 15 };		//  bottom  center
+	holes[2] = { 0.0f, 0.0f, 0.0f, -8.0f, 0.1f, 0.0f,  1};	//  top  center
+	holes[3] = { 0.0f, 0.0f, 0.0f, 8.0f, 0.1f, 0.0f,   1};		//  bottom  center
 
-	holes[4] = { 0.0f, 0.0f, 0.0f, -7.5f, 0.1f, -10.5f, 15 };		//  top left
-	holes[5] = { 0.0f, 0.0f, 0.0f, 7.5f, 0.1f , -10.5f, 15 }; 	//  bottom left
+	holes[4] = { 0.0f, 0.0f, 0.0f, -7.5f, 0.1f, -10.5f, 1};		//  top left
+	holes[5] = { 0.0f, 0.0f, 0.0f, 7.5f, 0.1f , -10.5f, 1}; 	//  bottom left
 }
+
 void draw_Hole(Hole hole) {
 	glColor3f(hole.red, hole.green, hole.blue);
 	glTranslatef(hole.x, hole.y, hole.z);
@@ -802,8 +846,99 @@ void draw_Hole(Hole hole) {
 	glEnd();
 	glTranslatef(-hole.x, -hole.y, -hole.z); // 0 point
 }
+
 void color_ball(float red, float green, float blue)
 {
 	glColor3f(red, green, blue);
 	glutSolidSphere(0.3, 32, 32);
+}
+
+
+void Stick() {
+    // Generate vertices
+    std::vector<float> vertices;
+	float radius1=0.1,radius2=0.15 ,height=15;
+	int segments=50;
+    for (int i = 0; i <= segments; i++) {
+        float angle = i * 2.0f * M_PI / segments;
+        float x1 = radius1 * cos(angle);
+        float y1 = 0.0f;
+        float z1 = radius1 * sin(angle);
+        float x2 = radius2 * cos(angle);
+        float y2 = height;
+        float z2 = radius2 * sin(angle);
+        vertices.push_back(x1);
+        vertices.push_back(y1);
+        vertices.push_back(z1);
+        vertices.push_back(x2);
+        vertices.push_back(y2);
+        vertices.push_back(z2);
+    }
+    vertices.push_back(0.0f); // bottom center
+    vertices.push_back(0.0f);
+    vertices.push_back(0.0f);
+    vertices.push_back(0.0f); // top center
+    vertices.push_back(height);
+    vertices.push_back(0.0f);
+
+    // Generate indices
+    std::vector<int> indices;
+    for (int i = 0; i < segments; i++) {
+        int i1 = i * 2;
+        int i2 = i * 2 + 1;
+        int i3 = (i + 1) * 2;
+        int i4 = (i + 1) * 2 + 1;
+        indices.push_back(i1);
+        indices.push_back(i2);
+        indices.push_back(i3);
+        indices.push_back(i2);
+        indices.push_back(i4);
+        indices.push_back(i3);
+        indices.push_back(i1);
+        indices.push_back(segments * 2);
+        indices.push_back(i3);
+        indices.push_back(i4);
+        indices.push_back(segments * 2 + 1);
+    }
+
+    // Draw using vertex and index buffers
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glVertexPointer(3, GL_FLOAT, 0, vertices.data());
+    glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, indices.data());
+    glDisableClientState(GL_VERTEX_ARRAY);
+}
+
+void display()
+{
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluPerspective(60.0, 1.0, 0.1, 100.0);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    gluLookAt(0.0, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+    glRotatef(rotationX, 0.0f, 1.0f, 0.0f); // Rotate around Y-axis
+    glRotatef(rotationY, 1.0f, 0.0f, 0.0f); // Rotate around X-axis
+    glColor3f(1.0, 1.0, 1.0);
+    Stick();   
+    glutSwapBuffers();
+}
+
+void StickMouse(int button, int state, int x, int y)
+{
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+        lastX = x;
+        lastY = y;
+    }
+}
+
+void StickMotion(int x, int y)
+{
+    int deltaX = x - lastX;
+    int deltaY = y - lastY;
+    rotationY += deltaX * 0.5f;
+    rotationX += deltaY * 0.5f;
+    lastX = x;
+    lastY = y;
+    glutPostRedisplay();
 }
