@@ -1,37 +1,45 @@
-#include<bits/stdc++.h>
-#include<GL/glut.h>
+#include <bits/stdc++.h>
+#include <GL/glut.h>
 using namespace std;
 
-typedef struct {
+typedef struct
+{
 	float x, y, z;
 	float red, green, blue;
 	int status;
 	int onTable;
 
-}Ball;
+} Ball;
 
-typedef struct {
+typedef struct
+{
 	float red, green, blue;
 	float x, y, z;
 	int score;
 
-}Hole;
+} Hole;
 
-typedef struct {
+typedef struct
+{
 	float x, z;
 	float w, h;
 	int score;
 
-}Block;
+} Block;
 
-
-//for stick 
-// Center point of rotation
+// for stick
+//  Center point of rotation
 int lastX, lastY;
 float rotationX = 0.0f;
 float rotationY = 0.0f;
-
-
+float stick_x = 0.0f;
+float stick_z = 0.0f;
+float stick_angle = 0.0f;
+float s_x = sin(stick_angle * 3.14 / 180);
+float s_z = cos(stick_angle * 3.14 / 180);
+int mover = 0;
+bool stick_translate = false;
+float dist_from_ball = 1.5f;
 
 void init();
 void cube();
@@ -44,37 +52,40 @@ void draw_block(Block block);
 void color_ball(float red, float green, float blue);
 void display();
 
-// for stick 
+// for stick
 void Stick();
-void StickMouse(int button, int state, int x, int y) ;
+void StickMouse(int button, int state, int x, int y);
 void StickMotion(int x, int y);
 
-
 int rot = 0, rot2 = 0, rot3 = 0, flag = 0, CanSpeed = 1, IsSpeeding = 0, flag4, IsAnimatingTable = 0, arrlenght = 9; // rotations for different in game camera movements
-int temp, reflex = 0, score = 0, start = 1, isVColliding, isHColliding; // reflex to check balls collision
-int selected_Ball, old_Ball; // old ball to get colour when switching ball control and the current selected ball which the player is controlling
-char s[10], str[100], *str2; // to print different characters on the screen using sprintf()
-float aC, xC, zC, dis; // the C variables for circular calculations, dis = distance between the ball and the hole
-float velocity = 15, speed = 0.005, defSpeed, rot_temp = 0; // variables for physics when a ball has collided with another ball starts a timer for speeding
+int temp, reflex = 0, score = 0, start = 1, isVColliding, isHColliding;												 // reflex to check balls collision
+int selected_Ball, old_Ball;																						 // old ball to get colour when switching ball control and the current selected ball which the player is controlling
+char s[10], str[100], *str2;																						 // to print different characters on the screen using sprintf()
+float aC, xC, zC, dis;																								 // the C variables for circular calculations, dis = distance between the ball and the hole
+float velocity = 15, speed = 0.005, defSpeed, rot_temp = 0;	
+float speed_x_direction=0,speed_z_direction=0;														 // variables for physics when a ball has collided with another ball starts a timer for speeding
 
-int fRight[9] = { 0 }, fLeft[9] = { 0 }, fDown[9] = { 0 }, fUp[9] = { 0 }; // The flags that for each ball, initialize with 0 and 1 when the specific side has entered collision
-clock_t starttime = clock(); // use the clock for game time ( 60 seconds)
-clock_t endtime; // end time for the clock
-double duration; // the duration of the animation
+int fRight[9] = {0}, fLeft[9] = {0}, fDown[9] = {0}, fUp[9] = {0}; // The flags that for each ball, initialize with 0 and 1 when the specific side has entered collision
+clock_t starttime = clock();									   // use the clock for game time ( 60 seconds)
+clock_t endtime;												   // end time for the clock
+double duration;												   // the duration of the animation
 Ball balls[9];
 Hole holes[6];
 Block blocks[8];
 
-void reset()  // reset all values when starting new game
+void reset() // reset all values when starting new game
 {
 	rot = rot2 = rot3 = 0;
 	flag = IsSpeeding = IsAnimatingTable = 0;
-	CanSpeed = 1; 
+	CanSpeed = 1;
 	reflex = 0;
-	start = 1; velocity = 15; speed = 0.005; rot_temp = 0;
+	start = 1;
+	velocity = 15;
+	speed = 0.005;
+	rot_temp = 0;
 }
 
-void up()   // When new game starts the table going up
+void up() // When new game starts the table going up
 {
 	rot_temp += 0.5;
 
@@ -91,26 +102,30 @@ void up()   // When new game starts the table going up
 	}
 }
 
-void print_score()  /// and timer
+void print_score() /// and timer
 {
 	sprintf(str, "Score : %d", score);
 	str2 = str;
 	glColor3f(1.0, 1.0, 0.0);
 	glRasterPos3f(-9, 10, 0);
-	do glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *str2);
+	do
+		glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *str2);
 	while (*(++str2));
 
-	if (IsAnimatingTable) {        /// when the table stop animating moving up starts the clock
+	if (IsAnimatingTable)
+	{ /// when the table stop animating moving up starts the clock
 		endtime = clock();
-		duration = (endtime - starttime) / (double) CLOCKS_PER_SEC; // get the time frame
-		sprintf(str, "Timer : %0.f", 60.0 - duration); // print time left on the screen
+		duration = (endtime - starttime) / (double)CLOCKS_PER_SEC; // get the time frame
+		sprintf(str, "Timer : %0.f", 60.0 - duration);			   // print time left on the screen
 		str2 = str;
 		glColor3f(0.0, 0.0, 1.0);
 		glRasterPos3f(-8.5, 11, 0);
-		do glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *str2);
+		do
+			glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *str2);
 		while (*(++str2));
 
-		if (duration >= 60) {
+		if (duration >= 60)
+		{
 			StopBalls();
 			reset();
 		}
@@ -118,14 +133,17 @@ void print_score()  /// and timer
 }
 
 // return the horizontal side of the collision
-int checkCollisionHorizontal(Ball a) {
+int checkCollisionHorizontal(Ball a)
+{
 	Block b;
-	for (int k = 4; k < 8; k++) {
+	for (int k = 4; k < 8; k++)
+	{
 		b = blocks[k];
 		if (a.x <= b.x + b.w &&
 			a.x >= b.x &&
 			a.z <= b.z + b.h &&
-			a.z >= b.z - b.h) {
+			a.z >= b.z - b.h)
+		{
 			printf("left\n");
 			return 2;
 		}
@@ -133,7 +151,8 @@ int checkCollisionHorizontal(Ball a) {
 		if (a.x <= b.x &&
 			a.x >= b.x - b.w &&
 			a.z <= b.z + b.h &&
-			a.z >= b.z - b.h) {
+			a.z >= b.z - b.h)
+		{
 			printf("right\n");
 			return 1;
 		}
@@ -144,28 +163,29 @@ int checkCollisionHorizontal(Ball a) {
 int checkCollisionVertical(Ball a)
 {
 	Block b;
-	for (int k = 4; k < 8; k++) {
+	for (int k = 4; k < 8; k++)
+	{
 		b = blocks[k];
-			//check the X axis
-			if (a.x <= b.x + b.w &&
-				a.x >= b.x - b.w &&
-				a.z <= b.z &&
-				a.z >= b.z - b.h) {
+		// check the X axis
+		if (a.x <= b.x + b.w &&
+			a.x >= b.x - b.w &&
+			a.z <= b.z &&
+			a.z >= b.z - b.h)
+		{
 
-				printf("up\n");
-				return 4;
-			}
-
-			if (a.x <= b.x + b.w &&
-				a.x >= b.x - b.w &&
-				a.z <= b.z + b.h &&
-				a.z >= b.z - b.h) {
-				printf("down\n");
-				return 3;
-			}
-
-
+			printf("up\n");
+			return 4;
 		}
+
+		if (a.x <= b.x + b.w &&
+			a.x >= b.x - b.w &&
+			a.z <= b.z + b.h &&
+			a.z >= b.z - b.h)
+		{
+			printf("down\n");
+			return 3;
+		}
+	}
 	return 0;
 }
 
@@ -174,9 +194,10 @@ int checkCollisionVertical(Ball a)
 int move_x(int i)
 {
 	int j;
-	for (j = 0; j<arrlenght; j++)
+	for (j = 0; j < arrlenght; j++)
 	{
-		if (j != i && balls[j].onTable == 0) {
+		if (j != i && balls[j].onTable == 0)
+		{
 			if (balls[i].x >= balls[j].x - 0.6 &&
 				balls[i].x <= balls[j].x + 0.6 &&
 				balls[i].z >= balls[j].z - 0.6 &&
@@ -187,7 +208,7 @@ int move_x(int i)
 	return -1;
 }
 
-void StopBalls()   // Stop's balls moving
+void StopBalls() // Stop's balls moving
 {
 	balls[selected_Ball].status = 1;
 
@@ -201,9 +222,12 @@ void StopBalls()   // Stop's balls moving
 		fDown[i] = 0;
 		fUp[i] = 0;
 	}
+	stick_x = balls[selected_Ball].x;
+	stick_z = balls[selected_Ball].z;
+	stick_angle = 0.0f;
 }
 
-void checkgame()  /// To Check if All the Ball's are inserted to the holes (End Game) 
+void checkgame() /// To Check if All the Ball's are inserted to the holes (End Game)
 {
 	for (int i = 1; i < 9 && balls[i].onTable == 1; i++)
 		if (i == 8)
@@ -212,7 +236,8 @@ void checkgame()  /// To Check if All the Ball's are inserted to the holes (End 
 			reset();
 		}
 
-	if (score == 50) {
+	if (score == 50)
+	{
 		StopBalls();
 		reset();
 	}
@@ -221,71 +246,91 @@ void checkgame()  /// To Check if All the Ball's are inserted to the holes (End 
 // The arrow keys
 void SpecialInput(int key, int x, int y)
 {
-	if (key == GLUT_KEY_RIGHT) {
+	if (key == GLUT_KEY_RIGHT)
+	{
 		fRight[selected_Ball] = 1;
 		fLeft[selected_Ball] = 0;
 	}
-	if (key == GLUT_KEY_LEFT) {
+	if (key == GLUT_KEY_LEFT)
+	{
 		fLeft[selected_Ball] = 1;
 		fRight[selected_Ball] = 0;
 	}
-	if (key == GLUT_KEY_UP) {
+	if (key == GLUT_KEY_UP)
+	{
 		fDown[selected_Ball] = 0;
 		fUp[selected_Ball] = 1;
 	}
-	if (key == GLUT_KEY_DOWN) {
+	if (key == GLUT_KEY_DOWN)
+	{
 		fUp[selected_Ball] = 0;
 		fDown[selected_Ball] = 1;
 	}
+
+	// angle .. 
+
+
+
 }
 
 void keyboard(unsigned char key, int x, int y)
 {
-	if (key == 27) exit(1);
+	if (key == 27)
+		exit(1);
 
 	if (key == 'n' && start == 1)
 	{
 		init_ball();
 		start = 0;
 		score = 0;
-	}  ///
+	} 
+
 	if (key == 'd')
 	{
 		rot += 5;
 		rot %= 360;
-	} /// 
+	} 
+
 	if (key == 'w')
 	{
 		rot2 += 5;
 		rot2 %= 360;
-	} ///
+	} 
+
 	if (key == 's')
 	{
 		rot2 -= 5;
 		rot2 %= 360;
-	} ///
+	} 
+
 	if (key == 'b')
 	{
 		StopBalls();
 		reset();
 		start = 1;
-	} ///
+	} 
+
 	if (key == 'a')
 	{
 		rot -= 5;
 		rot %= 360;
-	} ///
+	} 
+
 	if (key == 'z')
 	{
 		rot3 += 5;
 		rot3 %= 360;
-	} ///
+	} 
+
 	if (key == 'x')
 	{
 		rot3 -= 5;
 		rot3 %= 360;
-	} /// select balls by the numbers and return the other ball to old colour
-	if (key >= '0' && key <= '9') {
+	} 
+	
+	// select balls by the numbers and return the other ball to old colour
+	if (key >= '0' && key <= '9')
+	{
 		old_Ball = selected_Ball;
 		selected_Ball = key - 48;
 
@@ -298,15 +343,17 @@ void keyboard(unsigned char key, int x, int y)
 		balls[selected_Ball].green = 1;
 		balls[selected_Ball].red = 1;
 	}
+
 	// stop all balls from moving
 	if (key == '5')
 	{
 		StopBalls();
-	} ///
-	if (key == '+')   // increase ball speed
+	}				///
+	if (key == '+') // increase ball speed
 	{
 		flag4 = 0;
-		if (speed < 10) {
+		if (speed < 10)
+		{
 			for (int i = 1; i < 9; i++)
 			{
 				if (balls[i].status == 1)
@@ -315,11 +362,13 @@ void keyboard(unsigned char key, int x, int y)
 			if (flag4 == 0)
 				speed = speed + 0.1;
 		}
-	} ///
-	if (key == '-') // slow ball speed 
+	}				
+
+	if (key == '-') // slow ball speed
 	{
 		flag4 = 0;
-		if (speed > 0.005) {
+		if (speed > 0.005)
+		{
 			for (int i = 1; i < 9; i++)
 			{
 				if (balls[i].status == 1)
@@ -328,14 +377,42 @@ void keyboard(unsigned char key, int x, int y)
 			if (flag4 == 0)
 				speed = speed - 1;
 		}
-	} ///
+	} 
+
+	if (key == 'r')
+	{
+		stick_angle += 3.0;
+	}
+	else if (key == 'l')
+	{
+		stick_angle -= 3.0;
+	}
+	if (key == ' ')
+	{
+		mover = 1;
+	}
+
+	if (key == 't')
+	{
+		stick_translate = true;
+		s_x = sin(stick_angle * 3.14 / 180);
+		s_z = cos(stick_angle * 3.14 / 180);
+		speed_z_direction= -s_z;
+		speed_x_direction= -s_x;
+		fLeft[selected_Ball] = (speed_x_direction < 0.2);
+		fRight[selected_Ball] = (speed_x_direction > 0.2);
+		fDown[selected_Ball] = (speed_z_direction > 0.2);
+		fUp[selected_Ball] 	 = (speed_z_direction < 0.2);
+
+	}
+	
 	glutPostRedisplay();
 }
 
 void draw()
 {
 	glClear(GL_COLOR_BUFFER_BIT |
-		GL_DEPTH_BUFFER_BIT);
+			GL_DEPTH_BUFFER_BIT);
 
 	glLoadIdentity();
 	glTranslatef(0, -15, -30);
@@ -344,30 +421,34 @@ void draw()
 	glRotatef(rot3, 0, 0, 1);
 	/************************************************************/
 
-	if (false)   //earliar start==1
+	if (start) // earliar start==1
 	{
+		stick_x = balls[selected_Ball].x;
+		stick_z = balls[selected_Ball].z;
 		str2 = "Press N To Start New Game";
 		glColor3f(1.0, 1.0, 0.0);
 		glRasterPos3f(-8, 15, 0);
-		do glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *str2);
+		do
+			glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *str2);
 		while (*(++str2));
 
 		sprintf(str, "Your Score : %d", score);
 		str2 = str;
 		glColor3f(1.0, 1.0, 0.0);
 		glRasterPos3f(-6, 19, 0);
-		do glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *str2);
+		do
+			glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *str2);
 		while (*(++str2));
 	}
 
-	if (true)    //start ==0
+	if (!start) // start ==0
 	{
 		if (!IsAnimatingTable)
 			up();
 
 		checkgame();
 
-		//Floor
+		// Floor
 		{
 			glTranslatef(0, 4, -12);
 			glColor3f(1, 1, 0.8);
@@ -382,9 +463,9 @@ void draw()
 			glColor3f(0.2, 0.7, 0.3);
 			glTranslatef(0, 8, 0);
 		}
-		//Table
+		// Table
 		{
-			
+
 			glBegin(GL_QUADS);
 			glNormal3f(0, 1, 0); // normal straight up
 			glVertex3f(-9, 0, -12);
@@ -393,7 +474,7 @@ void draw()
 			glVertex3f(-9, 0, 12);
 			glEnd();
 
-			//Table Legs 
+			// Table Legs
 			glColor3f(0.2, 0.2, 0.5);
 
 			glTranslatef(-8.5, 0, 11.5);
@@ -405,19 +486,19 @@ void draw()
 			glTranslatef(0, 0, 23);
 			cube();
 
-			glTranslatef(-8.5, 0, -11.5);  // 0 point
+			glTranslatef(-8.5, 0, -11.5); // 0 point
 		}
-		print_score();	
-		//side walls 
-		// {		
-		// 	glColor3f(0.6, 0.6, 0.6);
-		// 	glBegin(GL_QUADS);
-		// 	glNormal3f(0, 1, 0);  // normal straight up
-		// 	glVertex3f(-20, -8, -25);
-		// 	glVertex3f(20, -8, -25);
-		// 	glVertex3f(20, 20, -25);
-		// 	glVertex3f(-20, 20, -25);
-		// 	glEnd();
+		print_score();
+		// side walls
+		//  {
+		//  	glColor3f(0.6, 0.6, 0.6);
+		//  	glBegin(GL_QUADS);
+		//  	glNormal3f(0, 1, 0);  // normal straight up
+		//  	glVertex3f(-20, -8, -25);
+		//  	glVertex3f(20, -8, -25);
+		//  	glVertex3f(20, 20, -25);
+		//  	glVertex3f(-20, 20, -25);
+		//  	glEnd();
 
 		// 	glBegin(GL_QUADS);
 		// 	glNormal3f(0, 1, 0); // normal straight up
@@ -436,25 +517,25 @@ void draw()
 		// 	glEnd();
 		// }
 
-
-		// drawStick 
+		// drawStick
 		Stick();
-		//Blocks
+		// Blocks
 
-		for (int i = 0; i < 8; i++) {
+		for (int i = 0; i < 8; i++)
+		{
 			glTranslatef(blocks[i].x, 0, blocks[i].z);
 			draw_block(blocks[i]);
 			glTranslatef(-blocks[i].x, 0, -blocks[i].z);
 		}
-		
-		//Holes
+
+		// Holes
 		for (int i = 0; i < 6; i++)
 		{
 			draw_Hole(holes[i]);
 		}
 
-		//Balls
-		glTranslatef(0, 0.3, 0);       // translate the ball 
+		// Balls
+		glTranslatef(0, 0.3, 0); // translate the ball
 
 		for (int i = 0; i < arrlenght; i++)
 		{
@@ -467,23 +548,27 @@ void draw()
 	}
 
 	glutSwapBuffers(); // display the output
-
 }
 
-void Checkflag(int i)  // to check if a ball hit a hole
+void Checkflag(int i) // to check if a ball hit a hole
 {
-	if (balls[i].onTable == 0) {   // to check if the ball still in the game
+	if (balls[i].onTable == 0)
+	{ // to check if the ball still in the game
 
-		for (int j = 0; j < 5; j++) {
+		for (int j = 0; j < 5; j++)
+		{
 			dis = sqrt(pow(balls[i].x - (holes[j].x), 2) + pow(balls[i].z - (holes[j].z), 2));
-			if (dis < 0.9) {
+			if (dis < 0.9)
+			{
 				score += holes[j].score;
-				if (holes[j].red == 1) {					
+				if (holes[j].red == 1)
+				{
 					balls[i].onTable = 2;
 					balls[i].status = 0;
 					printf("%d\n", score);
 				}
-				else{
+				else
+				{
 					balls[i].x = 0;
 					balls[i].z = -7.5;
 					fRight[i] = 0;
@@ -497,67 +582,85 @@ void Checkflag(int i)  // to check if a ball hit a hole
 	}
 }
 
-// here we check collision, which side of the collision is occurring
+//  we check collision, which side of the collision is occurring
 // the flags for the sides (fLeft, fRight, fDown, fUp) that each ball has
 // we can set a reflex and move the ball accordingly
 void Idle()
 {
+	Stick();
 	isVColliding = isHColliding = 0;
-	for (int i = 0; i < arrlenght; i++) {	
-        // both functions return a number that represents the collided side (left,right) (up,down)	
-		isVColliding = checkCollisionVertical(balls[i]); // check ball collided with block vertically 
+	for (int i = 0; i < arrlenght; i++)
+	{
+		// both functions return a number that represents the collided side (left,right) (up,down)
+		isVColliding = checkCollisionVertical(balls[i]);   // check ball collided with block vertically
 		isHColliding = checkCollisionHorizontal(balls[i]); // check ball collided with block horizontally
-		Checkflag(i);   // check if the ball hit a hole
-		
-		if (balls[i].onTable == 0) {            /// check of the ball still in the table
-			if (fRight[i])             // each ball have her own right flags
+		Checkflag(i);									   // check if the ball hit a hole
+
+		if (balls[i].onTable == 0)
+		{				   /// check of the ball still in the table
+			if (fRight[i]) // each ball have her own right flags
 			{
-			// is the ball still in the game? 
-			// if yes starts moving until it has collided with block
+				// is the ball still in the game?
+				// if yes starts moving until it has collided with block
 				if (balls[i].status == 1 && move_x(i) == -1)
 					// TODO: add conditions for vertical+horizontal collision example: left & up
-					if (balls[i].x >= 7.7 || isHColliding == 1) {
+					if (balls[i].x >= 7.7 || isHColliding == 1)
+					{
 						fLeft[i] = 1;
 						fRight[i] = 0;
 					}
-					else {
+					else
+					{
 						balls[i].x += speed;
 					}
-					// if the ball is still in the game and has collided with another ball
-					if (balls[i].status == 1 && move_x(i) != -1) {
-						temp = move_x(i);
-						balls[temp].status = 1;
-						fRight[temp] = 1;
-						fLeft[temp] = 0;
-						reflex = 1;
-						balls[i].x -= speed;
-						fLeft[i] = 1;
-						fRight[i] = 0;
 
-						if (fUp[i] == 1)
-							fUp[temp] = 1;
-						if (fDown[i] == 1)
-							fDown[temp] = 1;
-					}
+				// if the ball is still in the game and has collided with another ball
+				if (balls[i].status == 1 && move_x(i) != -1)
+				{
+					temp = move_x(i);
+					balls[temp].status = 1;
+					fRight[temp] = 1;
+					fLeft[temp] = 0;
+					reflex = 1;
+					balls[i].x -= speed;
+					balls[i].x += speed_x_direction;
+					fLeft[i] = 1;
+					fRight[i] = 0;
+
+					if (fUp[i] == 1)
+						fUp[temp] = 1;
+					if (fDown[i] == 1)
+						fDown[temp] = 1;
+				}
+				
+				// balls[i].z += speed_z_direction;
+
+
 			}
 			if (fLeft[i])
 			{
 				if (balls[i].status == 1 && move_x(i) == -1)
-					if (balls[i].x <= -7.7 || isHColliding == 2) {
+					if (balls[i].x <= -7.7 || isHColliding == 2)
+					{
 						fLeft[i] = 0;
 						fRight[i] = 1;
 					}
-					else {
+					else
+					{
 						balls[i].x -= speed;
 					}
-				
-				if (balls[i].status == 1 && move_x(i) != -1) {
+
+				if (balls[i].status == 1 && move_x(i) != -1)
+				{
 					temp = move_x(i);
 					balls[temp].status = 1;
 					fRight[temp] = 0;
 					fLeft[temp] = 1;
 					reflex = 1;
-					balls[i].x += speed;
+
+					// balls[i].x += speed;
+					balls[i].x += speed_x_direction;
+
 					fLeft[i] = 0;
 					fRight[i] = 1;
 					if (fUp[i] == 1)
@@ -565,11 +668,13 @@ void Idle()
 					if (fDown[i] == 1)
 						fDown[temp] = 1;
 				}
+				// balls[i].z += speed_z_direction;
 			}
 			if (fUp[i])
 			{
 				if (balls[i].status == 1 && move_x(i) == -1)
-					if (balls[i].z <= -10.7 || isVColliding == 3) {
+					if (balls[i].z <= -10.7 || isVColliding == 3)
+					{
 						fUp[i] = 0;
 						fDown[i] = 1;
 					}
@@ -577,12 +682,15 @@ void Idle()
 					{
 						balls[i].z -= speed;
 					}
-				if (balls[i].status == 1 && move_x(i) != -1) {
+				if (balls[i].status == 1 && move_x(i) != -1)
+				{
 					temp = move_x(i);
 					balls[temp].status = 1;
 					fUp[temp] = 1;
 					fDown[temp] = 0;
-					balls[i].z += speed;
+					// balls[i].z += speed;
+					balls[i].z += speed_z_direction;
+
 					reflex = 1;
 					fDown[i] = 1;
 					fUp[i] = 0;
@@ -592,6 +700,7 @@ void Idle()
 					if (fRight[i] == 1)
 						fRight[temp] = 1;
 				}
+				// balls[i].x += speed_x_direction;
 			}
 			if (fDown[i])
 			{
@@ -600,18 +709,20 @@ void Idle()
 					{
 						fUp[i] = 1;
 						fDown[i] = 0;
-					}					
+					}
 					else
 					{
 						balls[i].z += speed;
 					}
-				if (balls[i].status == 1 && move_x(i) != -1) {
+				if (balls[i].status == 1 && move_x(i) != -1)
+				{
 
 					temp = move_x(i);
 					balls[temp].status = 1;
 					fUp[temp] = 0;
 					fDown[temp] = 1;
-					balls[i].z -= speed;
+					// balls[i].z -= speed;
+					balls[i].z += speed_z_direction;
 					reflex = 1;
 					fDown[i] = 0;
 					fUp[i] = 1;
@@ -620,9 +731,10 @@ void Idle()
 					if (fRight[i] == 1)
 						fRight[temp] = 1;
 				}
-			}		
+				// balls[i].x += speed_x_direction;
+			}
 		}
-		
+
 		// keep the balls on the table
 		// if (balls[i].onTable == 2)
 		// {
@@ -634,23 +746,28 @@ void Idle()
 		// }
 	}
 
-	if (reflex) {            //  if a ball hit another ball reflex=1 starts to speed then stop after some time (15 frame)
-		if (velocity > 0) {
-			if (IsSpeeding == 0) {
-				defSpeed = speed;   // saving the speed
+	if (reflex)
+	{ //  if a ball hit another ball reflex=1 starts to speed then stop after some time (15 frame)
+		if (velocity > 0)
+		{
+			if (IsSpeeding == 0)
+			{
+				defSpeed = speed; // saving the speed
 				printf("%f\n", defSpeed);
 				IsSpeeding = 1;
 				printf("here\n");
 			}
 			velocity -= defSpeed;
-			speed = speed - (0.0007*speed);
-			if (CanSpeed && velocity < 10) {
+			speed = speed - (0.0007 * speed);
+			if (CanSpeed && velocity < 10)
+			{
 				balls[selected_Ball].status = 0;
 				CanSpeed = 0;
 			}
 		}
-		else {     // stop ball's moving
-			speed = defSpeed;   // return speed 
+		else
+		{					  // stop ball's moving
+			speed = defSpeed; // return speed
 			velocity = 15;
 			CanSpeed = 1;
 			IsSpeeding = 0;
@@ -665,24 +782,22 @@ int main(int argc, char *argv[])
 {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH); // RGB display, double-buffered, with Z-Buffer
-	glutInitWindowSize(1000, 1000); // 500 x 500 pixels
+	glutInitWindowSize(1000, 1000);							  // 500 x 500 pixels
 	glutCreateWindow("3D");
 	init();
-	
-	
-	glutDisplayFunc(draw); // Set the display function
-	glutKeyboardFunc(keyboard); // Set the keyboard function
-	glutSpecialFunc(SpecialInput); //special keyboard keys
 
-    glutMouseFunc(StickMouse);
-    glutMotionFunc(StickMotion);
+	glutDisplayFunc(draw);		   // Set the display function
+	glutKeyboardFunc(keyboard);	   // Set the keyboard function
+	glutSpecialFunc(SpecialInput); // special keyboard keys
 
-	init_ball(); // draw the balls
-	init_holes(); // draw hole
+	glutMouseFunc(StickMouse);
+	glutMotionFunc(StickMotion);
+
+	init_ball();   // draw the balls
+	init_holes();  // draw hole
 	init_blocks(); // draw inside and outside walls
 	glutIdleFunc(Idle);
 	glutMainLoop(); // Start the main event loop
-
 }
 
 // Set OpenGL parameters
@@ -695,17 +810,17 @@ void init()
 
 	// Lighting parameters
 
-	GLfloat mat_ambdif[] = { 1.0,2.0, 0.0, 1.0 };
-	GLfloat mat_specular[] = { 0.0, 0.0, 0.0, 1.0 };
-	GLfloat mat_shininess[] = { 80.0 };
-	GLfloat light_position[] = { 0.0, 5.0, 0.0, 1.0 };
+	GLfloat mat_ambdif[] = {1.0, 2.0, 0.0, 1.0};
+	GLfloat mat_specular[] = {0.0, 0.0, 0.0, 1.0};
+	GLfloat mat_shininess[] = {80.0};
+	GLfloat light_position[] = {0.0, 5.0, 0.0, 1.0};
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 
 	glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, mat_ambdif); // set both amb and diff components
-	glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular); // set specular
-	glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess); // set shininess
-	glLightfv(GL_LIGHT0, GL_POSITION, light_position); // set light "position", in this case direction
-	glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE); // active material changes by glColor3f(..)
+	glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);			// set specular
+	glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);		// set shininess
+	glLightfv(GL_LIGHT0, GL_POSITION, light_position);			// set light "position", in this case direction
+	glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);			// active material changes by glColor3f(..)
 
 	glEnable(GL_LIGHTING);
 	glEnable(GL_LIGHT0);
@@ -755,7 +870,7 @@ void draw_block(Block block)
 	glColor3f(1.0, 0.0, 0.0);
 	glBegin(GL_QUADS);
 
-	//Front
+	// Front
 	glNormal3f(0, 0, 1);
 	glVertex3f(-block.w, 0, block.h);
 	glVertex3f(-block.w, 0.6, block.h);
@@ -793,14 +908,15 @@ void draw_block(Block block)
 	glEnd();
 }
 
-// position the 4 surrounding walls and the 4 inside cubes 
-//TODO: set the variables width and height and replace the numbers
-void init_blocks() 
+// position the 4 surrounding walls and the 4 inside cubes
+// TODO: set the variables width and height and replace the numbers
+
+void init_blocks()
 {
-	blocks[0] = { 0.0f, -11.5f, 9.0f, 0.5f, 0};  //
-	blocks[1] = { 0.0f, 11.5f, 9.0f, 0.5f, 0 };
-	blocks[2] = { 8.5f, 0.0f, 0.5f, 12.0f, 0 };
-	blocks[3] = { -8.5f, 0.0f, 0.5f, 12.0f, 0 };
+	blocks[0] = {0.0f, -11.5f, 9.0f, 0.5f, 0}; //
+	blocks[1] = {0.0f, 11.5f, 9.0f, 0.5f, 0};
+	blocks[2] = {8.5f, 0.0f, 0.5f, 12.0f, 0};
+	blocks[3] = {-8.5f, 0.0f, 0.5f, 12.0f, 0};
 
 	// blocks[4] = { -5.0f, -7.0f, 3.5f, 1.0f, 2 }; // left up
 	// blocks[5] = { -5.0f,  6.5f, 3.5f, 1.0f, 2 }; // left down
@@ -811,33 +927,36 @@ void init_blocks()
 // position the 9 different balls on screen
 void init_ball()
 {
-	balls[0] = {0.0f , 0.0f, -5.0f, 1.0,1.0,1.0, 1,0};
+	balls[0] = {0.0f, 0.0f, -5.0f, 1.0, 1.0, 1.0, 1, 0};
 	balls[1] = {0.0f, 0.0f, -3.0f, 0.0f, 0.0f, 1.0f, 0, 0};
-	balls[2] = {-1.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f, 0,0};
-	balls[3] = { 1.0f, 0.0f, 2.0f, 0.0f, 1.0f, 0.0f, 0,0};
-	balls[4] = {-4.0f, 0.0f, -3.0f, 0.8f, 0.5f, 0.2f, 0,0};
-	balls[5] = {1.0, 0.0f, 5.0f, 0.2f, 0.5f, 0.86f, 0,0};
-	balls[6] = {0.0f, 0.0f, 4.0f, 0.2f, 0.7f, 0.7f, 0,0};
-	balls[7] = {-6.0f, 0.0f, 8.0f, 0.3f, 0.1f, 0.6f, 0,0};
-	balls[8] = {6.0f, 0.0f, 3.0f, 0.8f, 0.6f, 0.2f, 0,0};
+	balls[2] = {-1.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f, 0, 0};
+	balls[3] = {1.0f, 0.0f, 2.0f, 0.0f, 1.0f, 0.0f, 0, 0};
+	balls[4] = {-4.0f, 0.0f, -3.0f, 0.8f, 0.5f, 0.2f, 0, 0};
+	balls[5] = {1.0, 0.0f, 5.0f, 0.2f, 0.5f, 0.86f, 0, 0};
+	balls[6] = {0.0f, 0.0f, 4.0f, 0.2f, 0.7f, 0.7f, 0, 0};
+	balls[7] = {-6.0f, 0.0f, 8.0f, 0.3f, 0.1f, 0.6f, 0, 0};
+	balls[8] = {6.0f, 0.0f, 3.0f, 0.8f, 0.6f, 0.2f, 0, 0};
 }
 
-void init_holes() {
-	holes[0] = { 0.0f, 0.0f, 0.0f, -7.5f, 0.1f, 10.5f, 1};	//  top right 
-	holes[1] = { 0.0f, 0.0f, 0.0f, 7.5f, 0.1f,  10.5f, 1};		// 	bottom right
+void init_holes()
+{
+	holes[0] = {0.0f, 0.0f, 0.0f, -7.5f, 0.1f, 10.5f, 1}; //  top right
+	holes[1] = {0.0f, 0.0f, 0.0f, 7.5f, 0.1f, 10.5f, 1};  // 	bottom right
 
-	holes[2] = { 0.0f, 0.0f, 0.0f, -8.0f, 0.1f, 0.0f,  1};	//  top  center
-	holes[3] = { 0.0f, 0.0f, 0.0f, 8.0f, 0.1f, 0.0f,   1};		//  bottom  center
+	holes[2] = {0.0f, 0.0f, 0.0f, -8.0f, 0.1f, 0.0f, 1}; //  top  center
+	holes[3] = {0.0f, 0.0f, 0.0f, 8.0f, 0.1f, 0.0f, 1};	 //  bottom  center
 
-	holes[4] = { 0.0f, 0.0f, 0.0f, -7.5f, 0.1f, -10.5f, 1};		//  top left
-	holes[5] = { 0.0f, 0.0f, 0.0f, 7.5f, 0.1f , -10.5f, 1}; 	//  bottom left
+	holes[4] = {0.0f, 0.0f, 0.0f, -7.5f, 0.1f, -10.5f, 1}; //  top left
+	holes[5] = {0.0f, 0.0f, 0.0f, 7.5f, 0.1f, -10.5f, 1};  //  bottom left
 }
 
-void draw_Hole(Hole hole) {
+void draw_Hole(Hole hole)
+{
 	glColor3f(hole.red, hole.green, hole.blue);
 	glTranslatef(hole.x, hole.y, hole.z);
 	glBegin(GL_POLYGON);
-	for (int i = 0; i <= 720; i++) {
+	for (int i = 0; i <= 720; i++)
+	{
 		aC = 3.14 * i;
 		xC = cos(aC / 360);
 		zC = sin(aC / 360);
@@ -853,92 +972,64 @@ void color_ball(float red, float green, float blue)
 	glutSolidSphere(0.3, 32, 32);
 }
 
-
-void Stick() {
-    // Generate vertices
-    std::vector<float> vertices;
-	float radius1=0.1,radius2=0.15 ,height=15;
-	int segments=50;
-    for (int i = 0; i <= segments; i++) {
-        float angle = i * 2.0f * M_PI / segments;
-        float x1 = radius1 * cos(angle);
-        float y1 = 0.0f;
-        float z1 = radius1 * sin(angle);
-        float x2 = radius2 * cos(angle);
-        float y2 = height;
-        float z2 = radius2 * sin(angle);
-        vertices.push_back(x1);
-        vertices.push_back(y1);
-        vertices.push_back(z1);
-        vertices.push_back(x2);
-        vertices.push_back(y2);
-        vertices.push_back(z2);
-    }
-    vertices.push_back(0.0f); // bottom center
-    vertices.push_back(0.0f);
-    vertices.push_back(0.0f);
-    vertices.push_back(0.0f); // top center
-    vertices.push_back(height);
-    vertices.push_back(0.0f);
-
-    // Generate indices
-    std::vector<int> indices;
-    for (int i = 0; i < segments; i++) {
-        int i1 = i * 2;
-        int i2 = i * 2 + 1;
-        int i3 = (i + 1) * 2;
-        int i4 = (i + 1) * 2 + 1;
-        indices.push_back(i1);
-        indices.push_back(i2);
-        indices.push_back(i3);
-        indices.push_back(i2);
-        indices.push_back(i4);
-        indices.push_back(i3);
-        indices.push_back(i1);
-        indices.push_back(segments * 2);
-        indices.push_back(i3);
-        indices.push_back(i4);
-        indices.push_back(segments * 2 + 1);
-    }
-
-    // Draw using vertex and index buffers
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glVertexPointer(3, GL_FLOAT, 0, vertices.data());
-    glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, indices.data());
-    glDisableClientState(GL_VERTEX_ARRAY);
+void Stick()
+{
+	if (stick_translate && dist_from_ball >= 0.5)
+	{
+		dist_from_ball -= 0.05;
+	}
+	else
+	{
+		stick_translate = false;
+		dist_from_ball = 1.5;
+	}
+	cout<<stick_angle<<" sta"<<endl;
+	s_x = sin(stick_angle * 3.14 / 180);
+	s_z = cos(stick_angle * 3.14 / 180);
+	glPushMatrix();
+	glTranslatef(stick_x, 0, stick_z);
+	glTranslatef(dist_from_ball * s_x, 1, dist_from_ball * s_z);
+	glColor3f(1, 1, 0);
+	glRotatef(stick_angle, 0, 1, 0);
+	glRotatef(-30, 1, 0, 0);
+	GLUquadricObj *p = gluNewQuadric();
+	gluQuadricDrawStyle(p, GLU_FILL);
+	gluCylinder(p, 0.1f, 0.2f, 15, 30, 30);
+	glPopMatrix();
 }
 
 void display()
 {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(60.0, 1.0, 0.1, 100.0);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    gluLookAt(0.0, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
-    glRotatef(rotationX, 0.0f, 1.0f, 0.0f); // Rotate around Y-axis
-    glRotatef(rotationY, 1.0f, 0.0f, 0.0f); // Rotate around X-axis
-    glColor3f(1.0, 1.0, 1.0);
-    Stick();   
-    glutSwapBuffers();
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(60.0, 1.0, 0.1, 100.0);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	gluLookAt(0.0, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+	glRotatef(rotationX, 0.0f, 1.0f, 0.0f); // Rotate around Y-axis
+	glRotatef(rotationY, 1.0f, 0.0f, 0.0f); // Rotate around X-axis
+	glColor3f(1.0, 1.0, 1.0);
+	Stick();
+	glutSwapBuffers();
 }
 
 void StickMouse(int button, int state, int x, int y)
 {
-    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-        lastX = x;
-        lastY = y;
-    }
+	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
+	{
+		lastX = x;
+		lastY = y;
+	}
 }
 
 void StickMotion(int x, int y)
 {
-    int deltaX = x - lastX;
-    int deltaY = y - lastY;
-    rotationY += deltaX * 0.5f;
-    rotationX += deltaY * 0.5f;
-    lastX = x;
-    lastY = y;
-    glutPostRedisplay();
+	int deltaX = x - lastX;
+	int deltaY = y - lastY;
+	rotationY += deltaX * 0.5f;
+	rotationX += deltaY * 0.5f;
+	lastX = x;
+	lastY = y;
+	glutPostRedisplay();
 }
